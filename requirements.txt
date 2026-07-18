@@ -1,0 +1,9 @@
+e621api @ https://kararasenok.space/media/e621api-0.0.0a0-py3-none-any.whl
+aiogram>=3.29.0
+SQLAlchemy>=2.0.51
+aiosqlite>=0.22.1
+asyncpg>=0.31.0
+aiomysql>=0.3.2
+redis>=8.0.1
+PyYAML>=6.0.3
+loguru>=0.7.3
