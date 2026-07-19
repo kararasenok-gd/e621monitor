@@ -46,7 +46,7 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
     if post.tags.artist:
         kboard.button(
             text="Artists",
-            callback_data="null",
+            url="https://t.me/e621monitorbot",
             icon_custom_emoji_id="5395444784611480792",
             style="primary"
         )
