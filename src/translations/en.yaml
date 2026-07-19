@@ -1,0 +1,54 @@
+display: "🇬🇧 English"
+translators: "kararasenok-gd"
+
+strings:
+  start:
+    greetings: "Hello!"
+    what_bot_do: "This bot will track new content on e621.net and send it to you."
+    adding_tags: "To get the bot running, add tags to track via /add <tags>."
+    warn: "Warning:"
+    meta_tags: "meta-tags (e.g. score:>=50) will not work"
+    help: "You can read more about my features here: /help"
+
+  add:
+    missing_args: "Missing tags! Correct usage: /add <tags>"
+    usage: "Example: /add female"
+    tags:
+      one: "Tag"
+      few: "Tags"
+    success:
+      one: "added"
+      few: "added"
+    already_exists: "already exists"
+
+  addbl:
+    missing_args: "Missing tags! Correct usage: /addbl <tags>"
+    usage: "Example: /addbl female"
+    success:
+      one: "excluded"
+      few: "excluded"
+
+  rem:
+    missing_args: "Missing tags! Correct usage: /rem <tags>"
+    usage: "Example: /rem female"
+    tag: "Tag"
+    success: "removed"
+    not_found: "not found"
+
+  list:
+    title: "List of tracked tags (click the link after a tag to remove it)"
+    empty: "You have no tags! Add them via /add or /addbl"
+    blacklist: "Blacklist"
+    delete: "DELETE"
+
+  lang:
+    choose: "Choose your language:"
+    contribute: "If your language is not available, you can add it. Read more here:"
+    not_found: "Language not found. Correct usage: /lang <code>"
+    changed: "Language changed to"
+
+  new_posts:
+    found: "Found a new post containing the following tags"
+    post_url: "Post"
+    file_url: "File"
+    artist: "Artists"
