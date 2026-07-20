@@ -26,6 +26,27 @@ cd e621monitor
 pip install -r requirements.txt
 ```
 
+### 1.1. Install ffmpeg
+
+You need ffmpeg to be installed on your system for converting gif/webm to mp4.
+
+#### Windows
+
+You can download ffmpeg from [here](https://ffmpeg.org/download.html) and add it to your system's PATH.
+
+#### Linux
+
+You can install ffmpeg using your package manager.
+
+For example, on Ubuntu / Debian:
+
+#### Checking ffmpeg
+You can check if ffmpeg is installed by running:
+
+```bash
+ffmpeg -version
+```
+
 ### 2. Configure
 
 Copy the example config and fill in your values:
