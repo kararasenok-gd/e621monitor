@@ -67,7 +67,7 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
 
     if post.tags.artist:
         kboard.button(
-            text="Artists",
+            text=get_translation("new_posts.artist", lang),
             url="https://t.me/e621monitorbot",
             icon_custom_emoji_id="5395444784611480792",
             style="primary"
