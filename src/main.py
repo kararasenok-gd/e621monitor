@@ -65,6 +65,7 @@ async def main():
         cache = None
         logger.warning(f"Redis unavailable, cache disabled: {e}")
 
+    shared_data.set("cfg", cfg)
     shared_data.set("session_local", SessionLocal)
     shared_data.set("e621client", E621API(
         username=cfg["art_source"]["username"],
@@ -72,10 +73,6 @@ async def main():
         endpoint=cfg['art_source']['base_url'],
         useragent=f"e621monitor/{current_version} (by kararasenok_gd)"
     ))
-    shared_data.set("watcher_loop", cfg["watch"].getint("check_every_seconds"))
-    shared_data.set("post_limit", cfg['autoposting'].getint('post_limit'))
-    shared_data.set("autoposting_score_limit", cfg['autoposting'].getint('score_limit'))
-    shared_data.set("autoposting_channels", (cfg['autoposting'].getint('channel_id_safe'), cfg['autoposting'].getint('channel_id_questionable'), cfg['autoposting'].getint('channel_id_explicit')))
 
     bot = Bot(
         token=cfg["bot"]["token"],

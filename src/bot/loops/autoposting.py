@@ -220,11 +220,12 @@ async def _process_file(bot: Bot, channel_id: int, file: FileInfo, caption: str,
 @loop(seconds=60, name="autoposting")
 async def loop_handler(bot: Bot):
     try:
+        cfg = shared_data.require("cfg")
         e621: E621API = shared_data.require("e621client")
         session_local = shared_data.require("session_local")
         base_url = e621.endpoint.rstrip("/")
 
-        posts = await e621.posts.search("score:>=" + str(shared_data.require("autoposting_score_limit")) + " -fart -feces -foot_fetish -vore -young -urine -diaper", limit=shared_data.require("post_limit"))
+        posts = await e621.posts.search("score:>=" + str(cfg["autoposting"].getint("score_limit")) + " -fart -feces -foot_fetish -vore -young -urine -diaper", limit=cfg["autoposting"].getint("post_limit"))
 
         async with session_local() as session:
             await session.execute(
@@ -242,7 +243,8 @@ async def loop_handler(bot: Bot):
                 if art and art.sent:
                     continue
 
-                channel_id = shared_data.require("autoposting_channels")[['s', 'q', 'e'].index(post.rating)]
+                channel_key = {"s": "channel_id_safe", "q": "channel_id_questionable", "e": "channel_id_explicit"}[post.rating]
+                channel_id = cfg["autoposting"].getint(channel_key)
 
                 if channel_id == -100:
                     continue

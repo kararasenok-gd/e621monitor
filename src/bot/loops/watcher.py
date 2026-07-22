@@ -97,14 +97,15 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
     ), kboard.as_markup()
 
 
-@loop(seconds=shared_data.require("watcher_loop"), name="post_watcher")
+@loop(seconds=shared_data.require("cfg")["watch"].getint("check_every_seconds"), name="post_watcher")
 async def loop_handler(bot: Bot):
     try:
+        cfg = shared_data.require("cfg")
         e621: E621API = shared_data.require("e621client")
         session_local = shared_data.require("session_local")
         base_url = e621.endpoint.rstrip("/")
 
-        posts = await e621.posts.search("", limit=shared_data.require("post_limit"))
+        posts = await e621.posts.search("", limit=cfg["autoposting"].getint("post_limit"))
 
         async with session_local() as session:
             await session.execute(
