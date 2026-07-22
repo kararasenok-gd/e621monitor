@@ -217,7 +217,7 @@ async def _process_file(bot: Bot, channel_id: int, file: FileInfo, caption: str,
         send_path.unlink(missing_ok=True)
 
 
-@loop(seconds=60, name="autoposting")
+@loop(seconds=shared_data.require("cfg")["autoposting"].getint("check_every_seconds"), name="autoposting")
 async def loop_handler(bot: Bot):
     try:
         cfg = shared_data.require("cfg")
