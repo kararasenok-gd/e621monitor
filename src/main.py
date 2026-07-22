@@ -39,6 +39,8 @@ def _setup_logging(debug: bool = False):
 
 working_loops = []
 
+current_version = open("VERSION").read().strip()
+
 
 async def main():
     os.makedirs("data", exist_ok=True)
@@ -67,7 +69,8 @@ async def main():
     shared_data.set("e621client", E621API(
         username=cfg["art_source"]["username"],
         key=cfg["art_source"]["api_key"],
-        endpoint=cfg['art_source']['base_url']
+        endpoint=cfg['art_source']['base_url'],
+        useragent=f"e621monitor/{current_version} (by kararasenok_gd)"
     ))
     shared_data.set("watcher_loop", cfg["watch"].getint("check_every_seconds"))
     shared_data.set("post_limit", cfg['autoposting'].getint('post_limit'))
