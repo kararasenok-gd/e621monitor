@@ -113,6 +113,7 @@ def _build_caption(post) -> str:
 
 
 async def _download(file: FileInfo) -> Path | None:
+    logger.debug("_download begin")
     async with httpx.AsyncClient() as client:
         types = {
             "jpg": "photo",
@@ -127,12 +128,15 @@ async def _download(file: FileInfo) -> Path | None:
         elif file.size >= 50*1024*1024 and types.get(file.ext) != "photo":
             return None
 
-        response = await client.get(file.url)
+        logger.debug("Downloading file...")
+        response = await client.get(file.url, headers={"User-Agent": shared_data.require("e621useragent")})
         response.raise_for_status()
+        logger.debug("Got content")
 
         save_path = "data/" + file.md5 + "." + file.ext
         with open(save_path, "wb") as f:
             f.write(response.content)
+            logger.debug("Saved file")
         return Path(save_path)
 
 

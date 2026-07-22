@@ -6,6 +6,7 @@ from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from e621api import E621API
+from e621api.utils import UserAgentBuilder
 from loguru import logger
 
 from bot.middlewares.db import DBSessionMiddleware
@@ -65,14 +66,21 @@ async def main():
         cache = None
         logger.warning(f"Redis unavailable, cache disabled: {e}")
 
+    user_agent = UserAgentBuilder(
+        project_name="e621monitor",
+        version=current_version,
+        username_on_e621=cfg['art_source']['username'] or "unknown_user"
+    ).build()
+
     shared_data.set("cfg", cfg)
     shared_data.set("session_local", SessionLocal)
     shared_data.set("e621client", E621API(
         username=cfg["art_source"]["username"],
         key=cfg["art_source"]["api_key"],
         endpoint=cfg['art_source']['base_url'],
-        useragent=f"e621monitor/{current_version} (by kararasenok_gd)"
+        useragent=user_agent
     ))
+    shared_data.set("e621useragent", user_agent)
 
     bot = Bot(
         token=cfg["bot"]["token"],
