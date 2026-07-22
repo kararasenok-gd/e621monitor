@@ -33,7 +33,7 @@ async def lang_handler(message: Message, session):
 
 {get_translation("lang.contribute", user.lang)} https://github.com/kararasenok-gd/e621monitor/blob/master/src/translations/README.md""",
             reply_markup=build_lang_keyboard(),
-            disable_notification=True
+            disable_web_page_preview=True
         )
 
     code = args.strip()
