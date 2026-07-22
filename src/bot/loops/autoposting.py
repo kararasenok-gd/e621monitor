@@ -233,7 +233,10 @@ async def loop_handler(bot: Bot):
 
         async with session_local() as session:
             await session.execute(
-                delete(Art).where(Art.sent.is_(True), Art.created_at < datetime.now(timezone.utc) - ART_RETENTION)
+                delete(Art).where(
+                    (Art.sent.is_(True) | Art.sent_to_channel.is_(True)),
+                    Art.created_at < datetime.now(timezone.utc) - ART_RETENTION,
+                )
             )
             await session.commit()
 
@@ -244,7 +247,7 @@ async def loop_handler(bot: Bot):
                     select(Art).where(Art.source_id == source_id)
                 )).scalar_one_or_none()
 
-                if art and art.sent:
+                if art and art.sent_to_channel:
                     continue
 
                 channel_key = {"s": "channel_id_safe", "q": "channel_id_questionable", "e": "channel_id_explicit"}[post.rating]
@@ -263,12 +266,12 @@ async def loop_handler(bot: Bot):
                     logger.warning(f"Failed to send post {source_id} to channel {channel_id}: {e}")
 
                 if art:
-                    art.sent = True
+                    art.sent_to_channel = True
                     if sent_ok and channel_id not in art.sent_to:
                         art.sent_to = [*art.sent_to, channel_id]
                 else:
-                    session.add(Art(source_id=source_id, url=post.file.url or "", sent=True, sent_to=[channel_id] if sent_ok else []))
+                    session.add(Art(source_id=source_id, url=post.file.url or "", sent_to_channel=True, sent_to=[channel_id] if sent_ok else []))
 
                 await session.commit()
-    except Exception:
+    except:
         logger.exception("Failed to process loop...")

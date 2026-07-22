@@ -11,5 +11,6 @@ class Art(Base):
     url = Column(String, nullable=False)
     sent = Column(Boolean, default=False)
     sent_to = Column(JSON, default=list, nullable=False)
+    sent_to_channel = Column(Boolean, default=False, nullable=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     extra = Column(JSON)

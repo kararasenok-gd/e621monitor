@@ -109,7 +109,10 @@ async def loop_handler(bot: Bot):
 
         async with session_local() as session:
             await session.execute(
-                delete(Art).where(Art.sent.is_(True), Art.created_at < datetime.now(timezone.utc) - ART_RETENTION)
+                delete(Art).where(
+                    (Art.sent.is_(True) | Art.sent_to_channel.is_(True)),
+                    Art.created_at < datetime.now(timezone.utc) - ART_RETENTION,
+                )
             )
             await session.commit()
 
@@ -161,5 +164,5 @@ async def loop_handler(bot: Bot):
                     session.add(Art(source_id=source_id, url=post.file.url or "", sent=True, sent_to=sent_to))
 
                 await session.commit()
-    except Exception as e:
+    except:
         logger.exception("Failed to process loop...")
