@@ -11,6 +11,6 @@ class Tags(Base):
     id = Column(Integer, primary_key=True)
     unique_id = Column(String(16), unique=True, nullable=False)
     user_id = Column(Integer, nullable=False)
-    tags = Column(String, nullable=False, unique=True)
+    tags = Column(String, nullable=False)
     is_exclude = Column(Boolean, default=False)
     created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))

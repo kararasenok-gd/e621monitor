@@ -11,7 +11,7 @@ from utils.funcs.bot import get_args
 from utils.funcs.txt import pluralize
 from utils.i18n import get as get_translation
 
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from models.tags import Tags
 
 router = Router()
@@ -32,7 +32,14 @@ async def start_handler(message: Message, session):
     tags = get_translation('add.tags.'  + plur, lang)
     succ = get_translation('add.success.' + plur, lang)
 
-    try:
+    isAlreadyAdded = await session.execute(
+        select(Tags).where(
+            Tags.user_id == message.from_user.id,
+            Tags.tags.ilike(f"%{args}%")
+        )
+    )
+
+    if not isAlreadyAdded:
         await session.execute(
             insert(Tags).values(
                 user_id=message.from_user.id,
@@ -40,7 +47,7 @@ async def start_handler(message: Message, session):
                 unique_id="".join(random.choices(string.ascii_letters + string.digits, k=16))
             )
         )
-    except IntegrityError:
+    else:
         return await message.answer(f"""<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> {tags} <b>{args}</b> {get_translation('add.already_exists', lang)}""")
 
     await session.commit()
