@@ -34,10 +34,9 @@ async def start_handler(message: Message, session):
 
     isAlreadyAdded = await session.execute(
         select(Tags).where(
-            Tags.user_id == message.from_user.id,
-            Tags.tags.ilike(f"%{args}%")
+            Tags.user_id == message.from_user.id, Tags.tags.ilike(f"%{args}%")
         )
-    )
+    ).scalars().first()
 
     if not isAlreadyAdded:
         await session.execute(
