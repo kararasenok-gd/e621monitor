@@ -1,4 +1,5 @@
 import asyncio
+import sys
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from PIL import Image
@@ -140,11 +141,33 @@ async def _download(file: FileInfo) -> Path | None:
         return Path(save_path)
 
 
+def _ffmpeg_memory_limiter(memory_limit_mb: int):
+    """Returns a preexec_fn that caps the ffmpeg child's address space, so a
+    malformed/huge input can't OOM-kill the whole bot process. POSIX only."""
+    if memory_limit_mb <= 0 or sys.platform == "win32":
+        return None
+
+    import resource
+
+    def _limit():
+        limit_bytes = memory_limit_mb * 1024 * 1024
+        resource.setrlimit(resource.RLIMIT_AS, (limit_bytes, limit_bytes))
+
+    return _limit
+
+
 async def _run_ffmpeg(args: list[str]) -> bool:
+    cfg = shared_data.require("cfg")
+    threads = cfg.getint("ffmpeg", "threads", fallback=0)
+    memory_limit_mb = cfg.getint("ffmpeg", "memory_limit_mb", fallback=0)
+
+    full_args = ["-threads", str(threads), *args] if threads > 0 else args
+
     proc = await asyncio.create_subprocess_exec(
-        "ffmpeg", *args,
+        "ffmpeg", *full_args,
         stdout=asyncio.subprocess.DEVNULL,
         stderr=asyncio.subprocess.PIPE,
+        preexec_fn=_ffmpeg_memory_limiter(memory_limit_mb),
     )
     _, stderr = await proc.communicate()
 
