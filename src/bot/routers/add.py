@@ -32,11 +32,11 @@ async def start_handler(message: Message, session):
     tags = get_translation('add.tags.'  + plur, lang)
     succ = get_translation('add.success.' + plur, lang)
 
-    isAlreadyAdded = await session.execute(
+    isAlreadyAdded = (await session.execute(
         select(Tags).where(
             Tags.user_id == message.from_user.id, Tags.tags.ilike(f"%{args}%")
         )
-    ).scalars().first()
+    )).scalars().first()
 
     if not isAlreadyAdded:
         await session.execute(
