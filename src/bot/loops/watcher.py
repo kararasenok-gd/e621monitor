@@ -14,7 +14,7 @@ from utils.i18n import get as get_translation
 from utils.loops import loop
 from utils.shared import shared_data
 
-ART_RETENTION = timedelta(hours=12)
+ART_RETENTION = timedelta(hours=24)
 
 
 def _token_matches(token: str, post_tags: set[str], post_rating: str) -> bool:
