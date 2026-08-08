@@ -17,27 +17,41 @@ from utils.shared import shared_data
 ART_RETENTION = timedelta(hours=12)
 
 
-def _row_matches(row_tags: str, post_tags: set[str]) -> bool:
-    return all(tag in post_tags for tag in row_tags.split())
+def _token_matches(token: str, post_tags: set[str], post_rating: str) -> bool:
+    if token.startswith("rating:"):
+        return post_rating == token.split(":", 1)[1][0]
+    return token in post_tags
 
 
-def _matched_tags(rows: list[Tags], post_tags: set[str]) -> list[str] | None:
+def _row_matches(row_tags: str, post_tags: set[str], post_rating: str) -> bool:
+    for token in row_tags.split():
+        if token.startswith("-"):
+            if _token_matches(token[1:], post_tags, post_rating):
+                return False
+        elif not _token_matches(token, post_tags, post_rating):
+            return False
+    return True
+
+
+def _matched_tags(rows: list[Tags], post_tags: set[str], post_rating: str) -> list[str] | None:
     include_rows = [r for r in rows if not r.is_exclude]
     exclude_rows = [r for r in rows if r.is_exclude]
 
     if not include_rows:
         return None
 
-    if any(_row_matches(r.tags, post_tags) for r in exclude_rows):
+    if any(_row_matches(r.tags, post_tags, post_rating) for r in exclude_rows):
         return None
 
-    matched_rows = [r for r in include_rows if _row_matches(r.tags, post_tags)]
+    matched_rows = [r for r in include_rows if _row_matches(r.tags, post_tags, post_rating)]
     if not matched_rows:
         return None
 
     matched_tags = []
     for row in matched_rows:
         for tag in row.tags.split():
+            if tag.startswith("-"):
+                continue
             if tag not in matched_tags:
                 matched_tags.append(tag)
 
@@ -141,7 +155,7 @@ async def loop_handler(bot: Bot):
                     if not rows:
                         continue
 
-                    matched_tags = _matched_tags(rows, post_tags)
+                    matched_tags = _matched_tags(rows, post_tags, post.rating)
                     if not matched_tags:
                         continue
 
