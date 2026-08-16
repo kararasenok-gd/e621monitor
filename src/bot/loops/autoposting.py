@@ -18,7 +18,7 @@ from utils.funcs.txt import clear_hashtags
 from utils.loops import loop
 from utils.shared import shared_data
 
-ART_RETENTION = timedelta(hours=12)
+ART_RETENTION = timedelta(hours=shared_data.require("cfg")["watch"].getint("art_retention_hours"))
 
 _CONVERT_TO_MP4 = {"webm", "gif"}
 _CONVERT_TO_PNG = {"webp"}
