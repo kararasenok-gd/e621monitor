@@ -42,7 +42,7 @@ working_loops = []
 
 current_version = open("VERSION").read().strip()
 
-
+@logger.catch()
 async def main():
     os.makedirs("data", exist_ok=True)
 
@@ -63,8 +63,8 @@ async def main():
         )
         logger.info("Redis connected.")
     except Exception as e:
-        cache = None
-        logger.warning(f"Redis unavailable, cache disabled: {e}")
+        logger.error("Can't initialize cache!")
+        raise e
 
     user_agent = UserAgentBuilder(
         project_name="e621monitor",
