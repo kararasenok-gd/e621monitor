@@ -20,7 +20,7 @@ from utils.shared import shared_data
 
 ART_RETENTION = timedelta(hours=shared_data.require("cfg")["watch"].getint("art_retention_hours"))
 
-_CONVERT_TO_MP4 = {"webm", "gif"}
+_CONVERT_TO_MP4 = {"webm"}
 _CONVERT_TO_PNG = {"webp"}
 
 
@@ -115,6 +115,7 @@ def _build_caption(post) -> str:
 
 async def _download(file: FileInfo) -> Path | None:
     logger.debug("_download begin")
+
     async with httpx.AsyncClient() as client:
         types = {
             "jpg": "photo",
@@ -134,7 +135,11 @@ async def _download(file: FileInfo) -> Path | None:
         response.raise_for_status()
         logger.debug("Got content")
 
-        save_path = "data/" + file.md5 + "." + file.ext
+        save_path = "data/temp/" + file.md5 + "." + file.ext
+
+        for folder in save_path.split("/")[:-1]:
+            Path(folder).mkdir(exist_ok=True)
+
         with open(save_path, "wb") as f:
             f.write(response.content)
             logger.debug("Saved file")
@@ -211,6 +216,8 @@ async def _send_to_channel(bot: Bot, channel_id: int, file_path: Path, ext: str,
 
     if ext in ("jpg", "png"):
         await bot.send_photo(channel_id, file, caption=caption, reply_markup=markup)
+    elif ext == "gif":
+        await bot.send_animation(channel_id, file, caption=caption, reply_markup=markup)
     else:
         await bot.send_video(channel_id, file, caption=caption, reply_markup=markup)
 
