@@ -75,7 +75,7 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
 
     return kboard.as_markup()
 
-def _build_caption(post) -> str:
+def _build_caption(post, keep: str | None = None) -> str:
     blacklisted_tags = []
     blacklisted_tags.extend(post.tags.meta)
     blacklisted_tags.extend(post.tags.invalid)
@@ -110,11 +110,12 @@ def _build_caption(post) -> str:
         logger.debug(f"Caption for post {post.id} exceeds Telegram limit; removing general tags")
         blacklisted_tags.extend(post.tags.general)
 
-        to_remove = ["male", "female", "male/male", "male/female", "female/female", "intersex", "solo", "duo", "sex", "cum", "group", "sound_warning"]
+        if keep:
+            to_remove = keep.split()
 
-        for tag in to_remove:
-            if tag in blacklisted_tags:
-                blacklisted_tags.remove(tag)
+            for tag in to_remove:
+                if tag in blacklisted_tags:
+                    blacklisted_tags.remove(tag)
 
         text = _build_tags_text(post)
         logger.debug(f"Rebuilt shortened caption for post {post.id}; length: {len(text)}")
@@ -300,11 +301,17 @@ async def loop_handler(bot: Bot):
         base_url = e621.endpoint.rstrip("/")
         score_limit = cfg["autoposting"].getint("score_limit")
         post_limit = cfg["autoposting"].getint("post_limit")
+        blacklisted = cfg["autoposting"].get("blacklisted")
+        keep = cfg["autoposting"].get("keep")
         logger.debug(
             f"Searching e621 posts; endpoint={base_url}, score_limit={score_limit}, post_limit={post_limit}"
         )
 
-        posts = await e621.posts.search("score:>=" + str(score_limit) + " -fart -feces -foot_fetish -vore -young -urine -diaper", limit=post_limit)
+        blacklisted_formatted = ""
+        for tag in blacklisted.split():
+            blacklisted_formatted += f" -{tag}"
+
+        posts = await e621.posts.search("score:>=" + str(score_limit) + blacklisted_formatted, limit=post_limit)
         logger.debug(f"e621 search returned {len(posts)} posts")
 
         async with session_local() as session:
@@ -340,7 +347,7 @@ async def loop_handler(bot: Bot):
                     continue
 
                 markup = _build_markup(post, base_url)
-                caption = _build_caption(post)
+                caption = _build_caption(post, keep)
 
                 sent_ok = False
                 try:
