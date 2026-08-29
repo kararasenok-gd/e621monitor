@@ -294,8 +294,10 @@ async def _process_file(bot: Bot, channel_id: int, file: FileInfo, caption: str,
 @loop(seconds=shared_data.require("cfg")["autoposting"].getint("check_every_seconds"), name="autoposting")
 async def loop_handler(bot: Bot):
     try:
-        logger.debug("Starting autoposting loop iteration")
         cfg = shared_data.require("cfg")
+        if not cfg['autoposting'].getboolean("enabled"): return
+
+        logger.debug("Starting autoposting loop iteration")
         e621: E621API = shared_data.require("e621client")
         session_local = shared_data.require("session_local")
         base_url = e621.endpoint.rstrip("/")

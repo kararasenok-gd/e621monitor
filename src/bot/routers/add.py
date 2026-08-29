@@ -8,6 +8,7 @@ from sqlalchemy.exc import IntegrityError
 
 from utils.funcs.db import check_exists
 from utils.funcs.bot import get_args
+from utils.funcs.tag_aliases import find_alias
 from utils.funcs.txt import pluralize
 from utils.i18n import get as get_translation
 
@@ -15,7 +16,6 @@ from sqlalchemy import insert, select
 from models.tags import Tags
 
 router = Router()
-
 
 @router.message(Command("add"))
 async def start_handler(message: Message, session):
@@ -27,7 +27,17 @@ async def start_handler(message: Message, session):
 
 {get_translation('add.usage', lang)}""")
 
-    plur = pluralize(min(len(args.split(" ")), 2), "one", "few", "many", "other")
+    original_tags = args.split()
+    resolved_tags = []
+    display_tags = []
+    for tag in original_tags:
+        resolved_tag = tag if tag.startswith("rating:") else await find_alias(tag)
+        resolved_tags.append(resolved_tag)
+        display_tags.append(f"{tag} -> {resolved_tag}" if resolved_tag != tag else tag)
+
+    args = " ".join(resolved_tags)
+    display_args = " ".join(display_tags)
+    plur = pluralize(min(len(original_tags), 2), "one", "few", "many", "other")
 
     tags = get_translation('add.tags.'  + plur, lang)
     succ = get_translation('add.success.' + plur, lang)
@@ -47,11 +57,8 @@ async def start_handler(message: Message, session):
             )
         )
     else:
-        return await message.answer(f"""<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> {tags} <b>{args}</b> {get_translation('add.already_exists', lang)}""")
+        return await message.answer(f"""<tg-emoji emoji-id="5210952531676504517">❌</tg-emoji> {tags} <b>{display_args}</b> {get_translation('add.already_exists', lang)}""")
 
     await session.commit()
 
-    await message.answer(f"""<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> {tags} <b>{args}</b> {succ}""")
-
-
-    
+    await message.answer(f"""<tg-emoji emoji-id="5206607081334906820">✅</tg-emoji> {tags} <b>{display_args}</b> {succ}""")

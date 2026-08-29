@@ -14,6 +14,7 @@ from utils.cache import init_cache
 from utils.database import init_db, init_models
 from utils.loader import load_routers, load_loops
 from utils.shared import shared_data
+from utils.funcs.tag_aliases import download as download_aliases, load_aliases
 
 
 class _InterceptHandler(logging.Handler):
@@ -29,12 +30,12 @@ class _InterceptHandler(logging.Handler):
         logger.opt(depth=depth, exception=record.exc_info).log(level, record.getMessage())
 
 
-def _setup_logging(debug: bool = False):
+def _setup_logging(log_level: str = "INFO"):
     logging.basicConfig(handlers=[_InterceptHandler()], level=0, force=True)
     logger.remove()
     logger.add(
         sink=lambda msg: print(msg, end=""),
-        level="DEBUG" if debug else "INFO",
+        level=log_level,
         colorize=True,
     )
 
@@ -47,7 +48,7 @@ async def main():
     os.makedirs("data", exist_ok=True)
 
     engine, SessionLocal, cfg = init_db()
-    _setup_logging(debug=cfg.getboolean("bot", "debug", fallback=False))
+    _setup_logging(log_level=cfg.get("bot", "log_level", fallback="INFO"))
 
     logger.info("Initializing...")
     await init_models(engine)
@@ -89,13 +90,17 @@ async def main():
     dp = Dispatcher()
     dp.update.middleware(DBSessionMiddleware(SessionLocal))
 
+    if cfg['watch'].getboolean("load_aliases"):
+        logger.info("Loading aliases...")
+        await download_aliases()
+        await load_aliases()
+
     routers = load_routers("bot/routers")
     for router in routers:
         dp.include_router(router)
 
     loops = load_loops("bot/loops")
     for loop in loops:
-        if loop.name == "autoposting" and not cfg['autoposting'].getboolean("enabled"): continue
         await loop.start(bot)
         working_loops.append(loop)
 
