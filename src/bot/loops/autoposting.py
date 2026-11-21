@@ -317,11 +317,10 @@ async def loop_handler(bot: Bot):
         for tag in blacklisted.split():
             blacklisted_formatted += f" -{tag}"
 
-        posts_response = await e621.search_posts(
+        posts = await e621.search_posts(
             "score:>=" + str(score_limit) + blacklisted_formatted,
             limit=post_limit,
         )
-        posts = posts_response["posts"]
         logger.debug(f"e621 search returned {len(posts)} posts")
 
         async with session_local() as session:

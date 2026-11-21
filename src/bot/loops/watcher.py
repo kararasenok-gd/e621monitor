@@ -144,8 +144,7 @@ async def loop_handler(bot: Bot):
         post_limit = cfg["autoposting"].getint("post_limit")
         logger.debug(f"Searching e621 posts; endpoint={base_url}, post_limit={post_limit}")
 
-        posts_response = await e621.search_posts("", limit=post_limit)
-        posts = posts_response["posts"]
+        posts = await e621.search_posts("", limit=post_limit)
         logger.debug(f"e621 search returned {len(posts)} posts")
 
         async with session_local() as session:

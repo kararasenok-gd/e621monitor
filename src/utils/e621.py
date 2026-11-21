@@ -20,7 +20,7 @@ class E621Client:
             timeout=30.0,
         )
 
-    async def search_posts(self, tags: str, limit: int) -> dict[str, Any]:
+    async def search_posts(self, tags: str, limit: int) -> list[dict[str, Any]]:
         response = await self._client.get(
             f"{self.endpoint}/posts.json",
             params={"tags": tags, "limit": limit, **self._auth},
