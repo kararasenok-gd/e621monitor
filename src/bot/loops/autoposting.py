@@ -13,7 +13,7 @@ from loguru import logger
 from sqlalchemy import select, delete
 
 from models.arts import Art
-from utils.e621 import E621Client
+from utils.e621 import E621Client, get_post_file, get_post_tag_categories
 from utils.funcs.txt import clear_hashtags
 from utils.loops import loop
 from utils.shared import shared_data
@@ -26,8 +26,10 @@ _CONVERT_TO_PNG = {"webp"}
 
 def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
     post_url = f"{base_url}/posts/{post['id']}"
-    file_url = post["file"]["url"] or post_url
-    logger.debug(f"Building markup for post {post['id']}; file URL available: {bool(post['file']['url'])}")
+    post_file = get_post_file(post)
+    artists = get_post_tag_categories(post).get("artist", [])
+    file_url = post_file["url"] or post_url
+    logger.debug(f"Building markup for post {post['id']}; file URL available: {bool(post_file['url'])}")
 
     kboard = InlineKeyboardBuilder()
 
@@ -45,8 +47,8 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
 
     adjust = [2, 1]
 
-    if post["tags"]["artist"]:
-        logger.debug(f"Adding {len(post['tags']['artist'])} artist buttons for post {post['id']}")
+    if artists:
+        logger.debug(f"Adding {len(artists)} artist buttons for post {post['id']}")
         kboard.button(
             text="Artists",
             url="https://t.me/e621monitorbot",
@@ -56,7 +58,7 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
 
         _btns = 0
 
-        for artist in post["tags"]["artist"]:
+        for artist in artists:
             _btns+=1
             kboard.button(
                 text=artist,
@@ -76,10 +78,11 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
     return kboard.as_markup()
 
 def _build_caption(post, keep: str | None = None) -> str:
+    tag_categories = get_post_tag_categories(post)
     blacklisted_tags = []
-    blacklisted_tags.extend(post["tags"]["meta"])
-    blacklisted_tags.extend(post["tags"]["invalid"])
-    blacklisted_tags.extend(post["tags"]["lore"])
+    blacklisted_tags.extend(tag_categories.get("meta", []))
+    blacklisted_tags.extend(tag_categories.get("invalid", []))
+    blacklisted_tags.extend(tag_categories.get("lore", []))
     logger.debug(
         f"Building caption for post {post['id']}; initially excluding {len(blacklisted_tags)} tags"
     )
@@ -91,12 +94,13 @@ def _build_caption(post, keep: str | None = None) -> str:
         ("character", "Characters"),
         ("species", "Species"),
         ("general", "General"),
+        ("other", "Tags"),
     ]
 
     def _build_tags_text(post) -> str:
         lines = []
         for field, label in category_order:
-            tags = [f"#{clear_hashtags(tag)}" for tag in post["tags"][field] if tag not in blacklisted_tags]
+            tags = [f"#{clear_hashtags(tag)}" for tag in tag_categories.get(field, []) if tag not in blacklisted_tags]
             if tags:
                 lines.append(f"<b>{label}:</b> " + ", ".join(tags))
 
@@ -108,7 +112,8 @@ def _build_caption(post, keep: str | None = None) -> str:
 
     if len(text) > 1024:
         logger.debug(f"Caption for post {post['id']} exceeds Telegram limit; removing general tags")
-        blacklisted_tags.extend(post["tags"]["general"])
+        blacklisted_tags.extend(tag_categories.get("general", []))
+        blacklisted_tags.extend(tag_categories.get("other", []))
 
         if keep:
             to_remove = keep.split()
@@ -336,7 +341,8 @@ async def loop_handler(bot: Bot):
 
             for post in posts:
                 source_id = str(post["id"])
-                logger.debug(f"Processing post {source_id}; rating={post['rating']}, file_ext={post['file']['ext']}")
+                post_file = get_post_file(post)
+                logger.debug(f"Processing post {source_id}; rating={post['rating']}, file_ext={post_file['ext']}")
 
                 art = (await session.execute(
                     select(Art).where(Art.source_id == source_id)
@@ -360,7 +366,7 @@ async def loop_handler(bot: Bot):
 
                 sent_ok = False
                 try:
-                    sent_ok = await _process_file(bot, channel_id, post["file"], caption, markup)
+                    sent_ok = await _process_file(bot, channel_id, post_file, caption, markup)
                 except Exception as e:
                     logger.warning(f"Failed to send post {source_id} to channel {channel_id}: {e}")
                 logger.debug(f"Post {source_id} send result for channel {channel_id}: {sent_ok}")
@@ -373,7 +379,7 @@ async def loop_handler(bot: Bot):
                     else:
                         logger.debug(f"Updated existing record for post {source_id}")
                 else:
-                    session.add(Art(source_id=source_id, url=post["file"]["url"] or "", sent_to_channel=True, sent_to=[channel_id] if sent_ok else []))
+                    session.add(Art(source_id=source_id, url=post_file["url"] or "", sent_to_channel=True, sent_to=[channel_id] if sent_ok else []))
                     logger.debug(f"Created database record for post {source_id}; sent_ok={sent_ok}")
 
                 await session.commit()

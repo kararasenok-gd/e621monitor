@@ -9,7 +9,7 @@ from sqlalchemy import select, delete
 from models.arts import Art
 from models.tags import Tags
 from models.users import Users
-from utils.e621 import E621Client
+from utils.e621 import E621Client, get_post_file, get_post_tag_categories
 from utils.i18n import get as get_translation
 from utils.loops import loop
 from utils.shared import shared_data
@@ -77,10 +77,12 @@ def _matched_tags(rows: list[Tags], post_tags: set[str], post_rating: str) -> li
 def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> tuple[str, InlineKeyboardMarkup]:
     tags_str = ", ".join(matched_tags)
     post_url = f"{base_url}/posts/{post['id']}"
-    file_url = post["file"]["url"] or post_url
+    post_file = get_post_file(post)
+    artists = get_post_tag_categories(post).get("artist", [])
+    file_url = post_file["url"] or post_url
     logger.debug(
         f"Building notification for post {post['id']}; lang={lang}, matched_tags={matched_tags}, "
-        f"file URL available: {bool(post['file']['url'])}"
+        f"file URL available: {bool(post_file['url'])}"
     )
 
     kboard = InlineKeyboardBuilder()
@@ -99,8 +101,8 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
 
     adjust = [2, 1]
 
-    if post["tags"]["artist"]:
-        logger.debug(f"Adding {len(post['tags']['artist'])} artist buttons for post {post['id']}")
+    if artists:
+        logger.debug(f"Adding {len(artists)} artist buttons for post {post['id']}")
         kboard.button(
             text=get_translation("new_posts.artist", lang),
             url="https://t.me/e621monitorbot",
@@ -110,7 +112,7 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
 
         _btns = 0
 
-        for artist in post["tags"]["artist"]:
+        for artist in artists:
             _btns+=1
             kboard.button(
                 text=artist,
@@ -169,7 +171,8 @@ async def loop_handler(bot: Bot):
 
             for post in posts:
                 source_id = str(post["id"])
-                logger.debug(f"Processing post {source_id}; rating={post['rating']}, file_ext={post['file']['ext']}")
+                post_file = get_post_file(post)
+                logger.debug(f"Processing post {source_id}; rating={post['rating']}, file_ext={post_file['ext']}")
 
                 art = (await session.execute(
                     select(Art).where(Art.source_id == source_id)
@@ -180,7 +183,11 @@ async def loop_handler(bot: Bot):
                     logger.debug(f"Skipping post {source_id}; already marked as sent")
                     continue
 
-                post_tags = {tag for tags in post["tags"].values() for tag in tags}
+                post_tags = {
+                    tag
+                    for tags in get_post_tag_categories(post).values()
+                    for tag in tags
+                }
                 logger.debug(f"Collected {len(post_tags)} unique tags for post {source_id}")
 
                 sent_to = []
@@ -218,7 +225,7 @@ async def loop_handler(bot: Bot):
                     art.sent_to = sent_to
                     logger.debug(f"Updated existing record for post {source_id}; sent_to={sent_to}")
                 else:
-                    session.add(Art(source_id=source_id, url=post["file"]["url"] or "", sent=True, sent_to=sent_to))
+                    session.add(Art(source_id=source_id, url=post_file["url"] or "", sent=True, sent_to=sent_to))
                     logger.debug(f"Created database record for post {source_id}; sent_to={sent_to}")
 
                 await session.commit()
