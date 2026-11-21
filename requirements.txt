@@ -1,4 +1,3 @@
-e621api @ https://kararasenok.space/media/whls/e621api-0.0.0a0-py3-none-any.whl
 aiogram>=3.29.0
 SQLAlchemy>=2.0.51
 aiosqlite>=0.22.1

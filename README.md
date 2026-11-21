@@ -126,7 +126,7 @@ Used for caching API responses. Run `docker compose up -d` to start a local Redi
 
 - [aiogram 3](https://aiogram.dev/) — Telegram bot framework
 - [SQLAlchemy](https://www.sqlalchemy.org/) — ORM
-- [e621api](https://github.com/kararasenok-gd/e621api) — e621 API client
+- [httpx](https://www.python-httpx.org/) — asynchronous HTTP client for the e621 API
 - [loguru](https://github.com/Delgan/loguru) — logging
 - [Redis](https://redis.io/) — Cache
 

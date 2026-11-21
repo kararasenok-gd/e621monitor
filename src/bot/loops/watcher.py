@@ -3,13 +3,13 @@ from datetime import datetime, timedelta, timezone
 from aiogram import Bot
 from aiogram.types import InlineKeyboardMarkup
 from aiogram.utils.keyboard import InlineKeyboardBuilder
-from e621api import E621API
 from loguru import logger
 from sqlalchemy import select, delete
 
 from models.arts import Art
 from models.tags import Tags
 from models.users import Users
+from utils.e621 import E621Client
 from utils.i18n import get as get_translation
 from utils.loops import loop
 from utils.shared import shared_data
@@ -76,11 +76,11 @@ def _matched_tags(rows: list[Tags], post_tags: set[str], post_rating: str) -> li
 
 def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> tuple[str, InlineKeyboardMarkup]:
     tags_str = ", ".join(matched_tags)
-    post_url = f"{base_url}/posts/{post.id}"
-    file_url = post.file.url or post_url
+    post_url = f"{base_url}/posts/{post['id']}"
+    file_url = post["file"]["url"] or post_url
     logger.debug(
-        f"Building notification for post {post.id}; lang={lang}, matched_tags={matched_tags}, "
-        f"file URL available: {bool(post.file.url)}"
+        f"Building notification for post {post['id']}; lang={lang}, matched_tags={matched_tags}, "
+        f"file URL available: {bool(post['file']['url'])}"
     )
 
     kboard = InlineKeyboardBuilder()
@@ -99,8 +99,8 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
 
     adjust = [2, 1]
 
-    if post.tags.artist:
-        logger.debug(f"Adding {len(post.tags.artist)} artist buttons for post {post.id}")
+    if post["tags"]["artist"]:
+        logger.debug(f"Adding {len(post['tags']['artist'])} artist buttons for post {post['id']}")
         kboard.button(
             text=get_translation("new_posts.artist", lang),
             url="https://t.me/e621monitorbot",
@@ -110,7 +110,7 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
 
         _btns = 0
 
-        for artist in post.tags.artist:
+        for artist in post["tags"]["artist"]:
             _btns+=1
             kboard.button(
                 text=artist,
@@ -125,7 +125,7 @@ def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> t
             adjust.append(_btns)
 
     kboard.adjust(*adjust)
-    logger.debug(f"Built notification markup for post {post.id} with row layout {adjust}")
+    logger.debug(f"Built notification markup for post {post['id']} with row layout {adjust}")
 
     return (
         f'<tg-emoji emoji-id=\"5210956306952758910\">👀</tg-emoji> <b>{get_translation("new_posts.found", lang)}</b><a href="{post_url}">:</a> '
@@ -138,13 +138,14 @@ async def loop_handler(bot: Bot):
     try:
         logger.debug("Starting post watcher loop iteration")
         cfg = shared_data.require("cfg")
-        e621: E621API = shared_data.require("e621client")
+        e621: E621Client = shared_data.require("e621client")
         session_local = shared_data.require("session_local")
         base_url = e621.endpoint.rstrip("/")
         post_limit = cfg["autoposting"].getint("post_limit")
         logger.debug(f"Searching e621 posts; endpoint={base_url}, post_limit={post_limit}")
 
-        posts = await e621.posts.search("", limit=post_limit)
+        posts_response = await e621.search_posts("", limit=post_limit)
+        posts = posts_response["posts"]
         logger.debug(f"e621 search returned {len(posts)} posts")
 
         async with session_local() as session:
@@ -168,8 +169,8 @@ async def loop_handler(bot: Bot):
             logger.debug(f"Grouped tag rows for {len(tags_by_user)} users")
 
             for post in posts:
-                source_id = str(post.id)
-                logger.debug(f"Processing post {source_id}; rating={post.rating}, file_ext={post.file.ext}")
+                source_id = str(post["id"])
+                logger.debug(f"Processing post {source_id}; rating={post['rating']}, file_ext={post['file']['ext']}")
 
                 art = (await session.execute(
                     select(Art).where(Art.source_id == source_id)
@@ -180,7 +181,7 @@ async def loop_handler(bot: Bot):
                     logger.debug(f"Skipping post {source_id}; already marked as sent")
                     continue
 
-                post_tags = {tag for tags in post.tags.model_dump().values() for tag in tags}
+                post_tags = {tag for tags in post["tags"].values() for tag in tags}
                 logger.debug(f"Collected {len(post_tags)} unique tags for post {source_id}")
 
                 sent_to = []
@@ -191,7 +192,7 @@ async def loop_handler(bot: Bot):
                         continue
 
                     logger.debug(f"Evaluating post {source_id} for user {user.user_id} with {len(rows)} tag rows")
-                    matched_tags = _matched_tags(rows, post_tags, post.rating)
+                    matched_tags = _matched_tags(rows, post_tags, post["rating"])
                     if not matched_tags:
                         logger.debug(f"Post {source_id} does not match subscriptions for user {user.user_id}")
                         continue
@@ -218,7 +219,7 @@ async def loop_handler(bot: Bot):
                     art.sent_to = sent_to
                     logger.debug(f"Updated existing record for post {source_id}; sent_to={sent_to}")
                 else:
-                    session.add(Art(source_id=source_id, url=post.file.url or "", sent=True, sent_to=sent_to))
+                    session.add(Art(source_id=source_id, url=post["file"]["url"] or "", sent=True, sent_to=sent_to))
                     logger.debug(f"Created database record for post {source_id}; sent_to={sent_to}")
 
                 await session.commit()

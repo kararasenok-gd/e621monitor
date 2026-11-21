@@ -5,13 +5,12 @@ import os
 from aiogram import Bot, Dispatcher
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from e621api import E621API
-from e621api.utils import UserAgentBuilder
 from loguru import logger
 
 from bot.middlewares.db import DBSessionMiddleware
 from utils.cache import init_cache
 from utils.database import init_db, init_models
+from utils.e621 import E621Client
 from utils.loader import load_routers, load_loops
 from utils.shared import shared_data
 from utils.funcs.tag_aliases import download as download_aliases, load_aliases
@@ -67,20 +66,18 @@ async def main():
         logger.error("Can't initialize cache!")
         raise e
 
-    user_agent = UserAgentBuilder(
-        project_name="e621monitor",
-        version=current_version,
-        username_on_e621=cfg['art_source']['username'] or "unknown_user"
-    ).build()
+    username = cfg["art_source"]["username"]
+    user_agent = f"e621monitor/{current_version} (by {username or 'unknown_user'} on e621)"
+    e621_client = E621Client(
+        username=username,
+        api_key=cfg["art_source"]["api_key"],
+        endpoint=cfg["art_source"]["base_url"],
+        user_agent=user_agent,
+    )
 
     shared_data.set("cfg", cfg)
     shared_data.set("session_local", SessionLocal)
-    shared_data.set("e621client", E621API(
-        username=cfg["art_source"]["username"],
-        key=cfg["art_source"]["api_key"],
-        endpoint=cfg['art_source']['base_url'],
-        useragent=user_agent
-    ))
+    shared_data.set("e621client", e621_client)
     shared_data.set("e621useragent", user_agent)
 
     bot = Bot(
@@ -88,24 +85,24 @@ async def main():
         default=DefaultBotProperties(parse_mode=ParseMode.HTML)
     )
     dp = Dispatcher()
-    dp.update.middleware(DBSessionMiddleware(SessionLocal))
-
-    if cfg['watch'].getboolean("load_aliases"):
-        logger.info("Loading aliases...")
-        await download_aliases()
-        await load_aliases()
-
-    routers = load_routers("bot/routers")
-    for router in routers:
-        dp.include_router(router)
-
-    loops = load_loops("bot/loops")
-    for loop in loops:
-        await loop.start(bot)
-        working_loops.append(loop)
-
-    logger.info("Starting bot...")
     try:
+        dp.update.middleware(DBSessionMiddleware(SessionLocal))
+
+        if cfg['watch'].getboolean("load_aliases"):
+            logger.info("Loading aliases...")
+            await download_aliases()
+            await load_aliases()
+
+        routers = load_routers("bot/routers")
+        for router in routers:
+            dp.include_router(router)
+
+        loops = load_loops("bot/loops")
+        for loop in loops:
+            await loop.start(bot)
+            working_loops.append(loop)
+
+        logger.info("Starting bot...")
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
@@ -117,6 +114,7 @@ async def main():
         if working_loops:
             for loop in working_loops:
                 await loop.stop()
+        await e621_client.aclose()
 
 
 if __name__ == "__main__":
