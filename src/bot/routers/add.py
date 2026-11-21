@@ -12,7 +12,7 @@ from utils.funcs.tag_aliases import find_alias
 from utils.funcs.txt import pluralize
 from utils.i18n import get as get_translation
 
-from sqlalchemy import insert, select
+from sqlalchemy import func, insert, select
 from models.tags import Tags
 
 router = Router()
@@ -44,7 +44,8 @@ async def start_handler(message: Message, session):
 
     isAlreadyAdded = (await session.execute(
         select(Tags).where(
-            Tags.user_id == message.from_user.id, Tags.tags.ilike(f"% {args} %")
+            Tags.user_id == message.from_user.id,
+            func.lower(Tags.tags) == args.lower(),
         )
     )).scalars().first()
 
