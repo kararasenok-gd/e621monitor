@@ -13,7 +13,7 @@ from loguru import logger
 from sqlalchemy import select, delete
 
 from models.arts import Art
-from utils.e621 import E621Client, get_post_file, get_post_tag_categories
+from utils.e621 import E621Client, get_post_file, resolve_post_tag_categories
 from utils.funcs.txt import clear_hashtags
 from utils.loops import loop
 from utils.shared import shared_data
@@ -24,10 +24,10 @@ _CONVERT_TO_MP4 = {"webm"}
 _CONVERT_TO_PNG = {"webp"}
 
 
-def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
+def _build_markup(post, base_url: str, tag_categories: dict[str, list[str]]) -> InlineKeyboardMarkup:
     post_url = f"{base_url}/posts/{post['id']}"
     post_file = get_post_file(post)
-    artists = get_post_tag_categories(post).get("artist", [])
+    artists = tag_categories.get("artist", [])
     file_url = post_file["url"] or post_url
     logger.debug(f"Building markup for post {post['id']}; file URL available: {bool(post_file['url'])}")
 
@@ -77,8 +77,7 @@ def _build_markup(post, base_url: str) -> InlineKeyboardMarkup:
 
     return kboard.as_markup()
 
-def _build_caption(post, keep: str | None = None) -> str:
-    tag_categories = get_post_tag_categories(post)
+def _build_caption(post, tag_categories: dict[str, list[str]], keep: str | None = None) -> str:
     blacklisted_tags = []
     blacklisted_tags.extend(tag_categories.get("meta", []))
     blacklisted_tags.extend(tag_categories.get("invalid", []))
@@ -361,8 +360,9 @@ async def loop_handler(bot: Bot):
                     logger.debug(f"Skipping post {source_id}; channel for rating {post['rating']} is disabled")
                     continue
 
-                markup = _build_markup(post, base_url)
-                caption = _build_caption(post, keep)
+                tag_categories = await resolve_post_tag_categories(e621, post)
+                markup = _build_markup(post, base_url, tag_categories)
+                caption = _build_caption(post, tag_categories, keep)
 
                 sent_ok = False
                 try:

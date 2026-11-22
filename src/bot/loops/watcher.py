@@ -9,7 +9,7 @@ from sqlalchemy import select, delete
 from models.arts import Art
 from models.tags import Tags
 from models.users import Users
-from utils.e621 import E621Client, get_post_file, get_post_tag_categories
+from utils.e621 import E621Client, get_post_file, resolve_post_tag_categories
 from utils.i18n import get as get_translation
 from utils.loops import loop
 from utils.shared import shared_data
@@ -74,11 +74,17 @@ def _matched_tags(rows: list[Tags], post_tags: set[str], post_rating: str) -> li
     return matched_tags
 
 
-def _build_message(post, matched_tags: list[str], lang: str, base_url: str) -> tuple[str, InlineKeyboardMarkup]:
+def _build_message(
+    post,
+    matched_tags: list[str],
+    lang: str,
+    base_url: str,
+    tag_categories: dict[str, list[str]],
+) -> tuple[str, InlineKeyboardMarkup]:
     tags_str = ", ".join(matched_tags)
     post_url = f"{base_url}/posts/{post['id']}"
     post_file = get_post_file(post)
-    artists = get_post_tag_categories(post).get("artist", [])
+    artists = tag_categories.get("artist", [])
     file_url = post_file["url"] or post_url
     logger.debug(
         f"Building notification for post {post['id']}; lang={lang}, matched_tags={matched_tags}, "
@@ -183,9 +189,10 @@ async def loop_handler(bot: Bot):
                     logger.debug(f"Skipping post {source_id}; already marked as sent")
                     continue
 
+                tag_categories = await resolve_post_tag_categories(e621, post)
                 post_tags = {
                     tag
-                    for tags in get_post_tag_categories(post).values()
+                    for tags in tag_categories.values()
                     for tag in tags
                 }
                 logger.debug(f"Collected {len(post_tags)} unique tags for post {source_id}")
@@ -204,7 +211,9 @@ async def loop_handler(bot: Bot):
                         continue
 
                     try:
-                        msg, markup = _build_message(post, matched_tags, user.lang, base_url)
+                        msg, markup = _build_message(
+                            post, matched_tags, user.lang, base_url, tag_categories
+                        )
                         logger.debug(
                             f"Sending post {source_id} notification to user {user.user_id}; "
                             f"message_length={len(msg)}"
