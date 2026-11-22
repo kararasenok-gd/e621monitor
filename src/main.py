@@ -106,15 +106,25 @@ async def main():
         await bot.delete_webhook(drop_pending_updates=True)
         await dp.start_polling(bot)
     finally:
-        await bot.session.close()
-        if cache is not None:
-            await cache.close()
-        await engine.dispose()
+        logger.info("Stopping background loops...")
+        for loop in working_loops:
+            await loop.stop()
+        working_loops.clear()
 
-        if working_loops:
-            for loop in working_loops:
-                await loop.stop()
-        await e621_client.aclose()
+        async def close_with_timeout(name, close, timeout: float = 10.0):
+            try:
+                await asyncio.wait_for(close(), timeout=timeout)
+            except asyncio.TimeoutError:
+                logger.warning(f"Timed out while closing {name}; continuing shutdown")
+            except Exception:
+                logger.exception(f"Failed to close {name}; continuing shutdown")
+
+        await close_with_timeout("Telegram session", bot.session.close)
+        if cache is not None:
+            await close_with_timeout("Redis", cache.close)
+        await close_with_timeout("database engine", engine.dispose)
+        await close_with_timeout("e621 HTTP client", e621_client.aclose)
+        logger.info("Shutdown complete")
 
 
 if __name__ == "__main__":

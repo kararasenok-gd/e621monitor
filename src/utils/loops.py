@@ -63,7 +63,7 @@ def loop(seconds: float, name=None):
                     logger.debug(f"Starting loop {self.name}...")
                     self.task = asyncio.create_task(self._runner(*a, **kw))
 
-            async def stop(self):
+            async def stop(self, timeout: float = 10.0):
                 """
                 Stop the loop.
 
@@ -76,12 +76,20 @@ def loop(seconds: float, name=None):
                 """
                 if self.task:
                     logger.debug(f"Stopping loop {self.name}...")
-                    self.task.cancel()
+                    task = self.task
+                    self.task = None
+                    task.cancel()
                     try:
-                        await self.task
+                        await asyncio.wait_for(task, timeout=timeout)
                     except asyncio.CancelledError:
                         pass
-                    self.task = None
+                    except asyncio.TimeoutError:
+                        logger.warning(
+                            f"Loop {self.name} did not stop within {timeout} seconds; "
+                            "leaving the task cancelled"
+                        )
+                    except Exception:
+                        logger.exception(f"Loop {self.name} failed while stopping")
 
         return Loop()
 
